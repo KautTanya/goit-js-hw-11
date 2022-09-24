@@ -1,11 +1,7 @@
-import axios from 'axios';
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import SimpleLightbox from 'simplelightbox';
 import 'simplelightbox/dist/simple-lightbox.min.css';
-
-const KEY = '29561920-1065b6adaef0eaf94313a88f4';
-const BASIC_URL = `https://pixabay.com/api/?key=${KEY}&q=`;
-const mainRequest = '&image_type=photo&orientation=horizontal&safesearch=true';
+import GetImages from './js/Api';
 
 const bodyGallary = document.querySelector('.gallery');
 const refs = {
@@ -18,53 +14,12 @@ refs.form.addEventListener('submit', formSubmit);
 refs.loadBtn.addEventListener('click', onLoadButton);
 refs.input.addEventListener('input', submitButton);
 refs.loadBtn.disabled = true;
-let total = 1;
 
-class GetImages {
-  constructor() {
-    this.searchQuery = '';
-    this.page = 1;
-    this.newQuery = '';
-  }
-  async getImages() {
-    refs.submitBtn.disabled = true;
-    const serverURL = `${BASIC_URL}${this.searchQuery}${mainRequest}&page=${this.page}&per_page=21`;
-    try {
-      const server = await axios.get(serverURL);
-      const data = await server.data;
-
-      return data;
-    } catch (error) {}
-  }
-
-  resetPage() {
-    this.page = 1;
-  }
-
-  get query() {
-    return this.searchQuery;
-  }
-  set query(newQuery) {
-    this.searchQuery = newQuery;
-  }
-  incrementPage() {
-    this.page += 1;
-  }
-}
 const newImgService = new GetImages();
-
-function formSubmit(evt) {
-  refs.loadBtn.disabled = true;
-  evt.preventDefault();
-  const { searchQuery } = evt.currentTarget;
-  newImgService.query = searchQuery.value;
-  newImgService.resetPage();
-  newImgService.getImages().then(data => choiceImg(data.hits));
-}
 
 function onLoadButton() {
   newImgService.incrementPage();
-  newImgService.getImages().then(data => choiceImg(data.hits));
+  newImgService.getImages().then(data => choiceImg(data));
 }
 function submitButton(evt) {
   if (evt.currentTarget.value) {
@@ -72,22 +27,28 @@ function submitButton(evt) {
   }
 }
 
-async function choiceImg(images) {
-  refs.loadBtn.disabled = false;
-  const data = await newImgService.getImages();
-  const allHits = data.hits.length;
+async function choiceImg(data) {
+  const images = data.hits;
   const maxHits = data.totalHits;
 
+  if (maxHits > 21) {
+    refs.loadBtn.disabled = false;
+  }
   if (images.length === 0) {
     Notify.failure(
       'Sorry, there are no images matching your search query. Please try again.'
     );
     refs.loadBtn.disabled = true;
   }
+  if (images.length < 21 && images.length > 0) {
+    Notify.failure(
+      "We're sorry, but you've reached the end of search results."
+    );
+    refs.loadBtn.disabled = true;
+  }
+
   const markup = images
     .map(img => {
-      total += 1;
-
       return ` 
       
       <div class="photo-card">
@@ -111,16 +72,9 @@ async function choiceImg(images) {
   </div>`;
     })
     .join('');
-  total -= 1;
-  if (total < 21) {
-    refs.loadBtn.disabled = true;
-    Notify.failure(
-      "We're sorry, but you've reached the end of search results."
-    );
+  if (newImgService.page === 1 && images.length > 0) {
+    Notify.success(`Horray! We found ${maxHits} images!!!`);
   }
-
-  notification(total, maxHits);
-  total = 1;
   if (newImgService.page === 1) {
     bodyGallary.innerHTML = markup;
   }
@@ -139,8 +93,11 @@ function modalListener() {
   });
   galleryLarge.refresh();
 }
-function notification(totalImg, totalHits) {
-  if (newImgService.page > 1 && totalImg === 21) {
-    Notify.success(`Hooray! We found ${totalHits} images.`);
-  }
+function formSubmit(evt) {
+  refs.loadBtn.disabled = true;
+  evt.preventDefault();
+  const { searchQuery } = evt.currentTarget;
+  newImgService.query = searchQuery.value;
+  newImgService.resetPage();
+  newImgService.getImages().then(data => choiceImg(data));
 }
