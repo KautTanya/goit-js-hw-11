@@ -93,6 +93,7 @@ function modalListener() {
   });
   galleryLarge.refresh();
 }
+
 function formSubmit(evt) {
   refs.loadBtn.disabled = true;
   evt.preventDefault();
